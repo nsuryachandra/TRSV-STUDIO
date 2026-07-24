@@ -920,6 +920,14 @@ export default function TemplateEditor({ template, onSave, onBack }) {
                 {/* Transformer handles */}
                 <Transformer
                   ref={trRef}
+                  keepRatio={selectedId === 'photo' ? !config.photo?.freeSize : true}
+                  enabledAnchors={
+                    selectedId === 'photo'
+                      ? (config.photo?.freeSize
+                        ? ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left']
+                        : ['top-left', 'top-right', 'bottom-left', 'bottom-right'])
+                      : ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left']
+                  }
                   boundBoxFunc={(oldBox, newBox) => {
                     // limit resize to avoid flipping shapes
                     if (newBox.width < 40 || newBox.height < 40) {

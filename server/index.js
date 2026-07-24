@@ -162,6 +162,95 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Update member profile
+app.put('/api/auth/profile', async (req, res) => {
+  try {
+    const { username, name, role, photoDataUrl } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    let photoUrl = photoDataUrl || '';
+
+    // If it's a base64 data URL, upload to Supabase if configured
+    if (photoDataUrl && photoDataUrl.startsWith('data:') && supabase) {
+      try {
+        const match = photoDataUrl.match(/^data:([^;]+);base64,(.*)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const fileData = Buffer.from(base64Data, 'base64');
+          
+          const fileExt = mimeType.split('/')[1] || 'png';
+          // Sanitize username for filename
+          const cleanUser = username.replace(/[^a-zA-Z0-9_-]/g, '');
+          const fileName = `user-${cleanUser}-${Date.now()}.${fileExt}`;
+          
+          const { data, error } = await supabase.storage
+            .from('templates')
+            .upload(fileName, fileData, {
+              contentType: mimeType,
+              upsert: true
+            });
+
+          if (error) {
+            throw error;
+          }
+
+          const { data: urlData } = supabase.storage
+            .from('templates')
+            .getPublicUrl(fileName);
+          
+          photoUrl = urlData.publicUrl;
+          console.log('Successfully uploaded user profile photo to Supabase:', photoUrl);
+        }
+      } catch (supabaseErr) {
+        console.warn('Supabase user photo upload failed, keeping base64:', supabaseErr.message);
+      }
+    }
+
+    const updated = await db.updateUserProfile(username, name, role, photoUrl);
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ success: true, user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get member profile
+app.get('/api/auth/profile', async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+    const cleanUsername = username.trim().toLowerCase();
+    
+    let user = null;
+    try {
+      const users = await db.getUsers();
+      user = users.find(u => u.username && u.username.toLowerCase() === cleanUsername);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      name: user.name,
+      role: user.role,
+      username: user.username,
+      photoDataUrl: user.photo_url || ''
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get all templates
 app.get('/api/templates', async (req, res) => {
   try {

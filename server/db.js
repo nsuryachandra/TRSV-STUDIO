@@ -169,10 +169,17 @@ async function initMysqlTables() {
           role VARCHAR(255) NOT NULL,
           username VARCHAR(255) UNIQUE NOT NULL,
           password VARCHAR(255) NOT NULL,
-          photo_url VARCHAR(255) DEFAULT '',
+          photo_url LONGTEXT DEFAULT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+
+      // Upgrade photo_url column to LONGTEXT on existing databases
+      try {
+        await connection.query(`ALTER TABLE users MODIFY COLUMN photo_url LONGTEXT DEFAULT NULL`);
+      } catch (colErr) {
+        console.log('Users photo_url column upgrade notice:', colErr.message);
+      }
 
       // Seed default template only if templates table is brand new (didn't exist)
       if (!tableExisted) {
@@ -721,6 +728,46 @@ const dbAPI = {
         if (err) return reject(err);
         resolve(true);
       });
+    });
+  },
+
+  updateUserProfile: (username, name, role, photoUrl) => {
+    return new Promise(async (resolve, reject) => {
+      const cleanUsername = username.trim().toLowerCase();
+      if (useMysql) {
+        try {
+          await mysqlPool.query(
+            'UPDATE users SET name = ?, role = ?, photo_url = ? WHERE LOWER(username) = ?',
+            [name, role, photoUrl, cleanUsername]
+          );
+          return resolve({ name, role, username: cleanUsername, photo_url: photoUrl });
+        } catch (err) {
+          return reject(err);
+        }
+      }
+      if (useFallback) {
+        const data = getFallbackData();
+        const idx = data.users.findIndex(u => u.username && u.username.toLowerCase() === cleanUsername);
+        if (idx !== -1) {
+          data.users[idx] = {
+            ...data.users[idx],
+            name,
+            role,
+            photo_url: photoUrl
+          };
+          saveFallbackData(data);
+          return resolve(data.users[idx]);
+        }
+        return resolve(null);
+      }
+      db.run(
+        'UPDATE users SET name = ?, role = ?, photo_url = ? WHERE LOWER(username) = ?',
+        [name, role, photoUrl, cleanUsername],
+        function(err) {
+          if (err) return reject(err);
+          resolve({ name, role, username: cleanUsername, photo_url: photoUrl });
+        }
+      );
     });
   }
 };

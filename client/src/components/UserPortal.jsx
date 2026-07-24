@@ -36,10 +36,120 @@ export default function UserPortal({ templates }) {
 
   const fileInputRef = useRef(null);
 
+  const saveProfileToServer = async (profileData) => {
+    if (!profileData.username) return;
+    const res = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: profileData.username,
+        name: profileData.name,
+        role: profileData.role,
+        photoDataUrl: profileData.photoDataUrl
+      })
+    });
+    if (!res.ok) {
+      throw new Error('Server returned error updating profile');
+    }
+    const data = await res.json();
+    return data;
+  };
+
+  const performBackgroundRemoval = async (sourceImage, currentProfile) => {
+    setRemovingBg(true);
+    setBgRemovalProgress('Initializing AI Model...');
+
+    try {
+      const blob = await removeBackground(sourceImage, {
+        model: 'small',
+        progress: (stage, current, total) => {
+          const pct = Math.round((current / total) * 100);
+          if (stage.includes('fetch')) {
+            setBgRemovalProgress(`Downloading AI model: ${pct}%`);
+          } else {
+            setBgRemovalProgress(`Removing background: ${pct}%`);
+          }
+        }
+      });
+
+      const reader = new FileReader();
+      await new Promise((resolve) => {
+        reader.onloadend = async () => {
+          const processedUrl = reader.result;
+          const updated = {
+            ...(currentProfile || profile),
+            photoDataUrl: processedUrl,
+            isBgRemoved: true
+          };
+          setProfile(updated);
+          localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
+          setIsSaved(true);
+          
+          if (updated.username && updated.name && updated.role) {
+            try {
+              await saveProfileToServer(updated);
+            } catch (err) {
+              console.error('Failed to auto-upload background removed image to server:', err);
+            }
+          }
+          resolve();
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.error('AI background removal error:', err);
+      alert('AI Background removal failed. Keeping the original photo. You can try removing background again.');
+      setProfile(prev => {
+        const updated = {
+          ...prev,
+          photoDataUrl: sourceImage,
+          isBgRemoved: false
+        };
+        localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
+        return updated;
+      });
+    } finally {
+      setRemovingBg(false);
+      setBgRemovalProgress('');
+    }
+  };
+
   useEffect(() => {
+    const syncProfileFromServer = async () => {
+      if (!profile.username) return;
+      try {
+        const res = await fetch(`/api/auth/profile?username=${encodeURIComponent(profile.username)}`);
+        if (res.ok) {
+          const serverProfile = await res.json();
+          if (serverProfile.name !== profile.name || 
+              serverProfile.role !== profile.role || 
+              (serverProfile.photoDataUrl && serverProfile.photoDataUrl !== profile.photoDataUrl)) {
+            
+            const updated = {
+              ...profile,
+              name: serverProfile.name || profile.name,
+              role: serverProfile.role || profile.role,
+              photoDataUrl: serverProfile.photoDataUrl || profile.photoDataUrl,
+              isBgRemoved: serverProfile.photoDataUrl ? (serverProfile.photoDataUrl.includes('base64') ? profile.isBgRemoved : true) : profile.isBgRemoved
+            };
+            setProfile(updated);
+            localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
+            
+            if (serverProfile.photoDataUrl && !originalPhoto) {
+              setOriginalPhoto(serverProfile.photoDataUrl);
+              localStorage.setItem('posterforge_original_photo', serverProfile.photoDataUrl);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to sync profile from database on mount:', err);
+      }
+    };
+
     if (profile.name && profile.role) {
       setIsSaved(true);
     }
+    syncProfileFromServer();
   }, []);
 
   const handleTextChange = (e) => {
@@ -60,87 +170,63 @@ export default function UserPortal({ templates }) {
       const dataUrl = reader.result;
       setOriginalPhoto(dataUrl);
       localStorage.setItem('posterforge_original_photo', dataUrl);
-      setProfile(prev => ({ 
-        ...prev, 
-        photoDataUrl: dataUrl,
-        isBgRemoved: false 
-      }));
+      // Build updated profile so performBackgroundRemoval has latest username/name/role
+      const updatedProfile = { ...profile, photoDataUrl: dataUrl, isBgRemoved: false };
+      setProfile(updatedProfile);
+      localStorage.setItem('posterforge_user_profile', JSON.stringify(updatedProfile));
       setIsSaved(false);
+
+      // Trigger automatic background removal immediately, pass current profile to avoid stale closure
+      performBackgroundRemoval(dataUrl, updatedProfile);
     };
     reader.readAsDataURL(file);
   };
 
   const removeBackgroundClientSide = async () => {
-    if (!profile.photoDataUrl) return;
-    setRemovingBg(true);
-    setBgRemovalProgress('Initializing AI Model...');
-
-    try {
-      // Use original uploaded photo if available, to avoid multiple compounding removal attempts
-      const sourceImage = originalPhoto || profile.photoDataUrl;
-
-      const blob = await removeBackground(sourceImage, {
-        model: 'small',
-        progress: (stage, current, total) => {
-          const pct = Math.round((current / total) * 100);
-          if (stage.includes('fetch')) {
-            setBgRemovalProgress(`Downloading AI model: ${pct}%`);
-          } else {
-            setBgRemovalProgress(`Removing background: ${pct}%`);
-          }
-        }
-      });
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const processedUrl = reader.result;
-        setProfile(prev => {
-          const updated = {
-            ...prev,
-            photoDataUrl: processedUrl,
-            isBgRemoved: true
-          };
-          localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
-          return updated;
-        });
-        setIsSaved(true);
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
-      console.error('AI background removal error:', err);
-      alert('AI Background removal failed. Please check your internet connection and try again.');
-    } finally {
-      setRemovingBg(false);
-      setBgRemovalProgress('');
-    }
+    const sourceImage = originalPhoto || profile.photoDataUrl;
+    if (!sourceImage) return;
+    await performBackgroundRemoval(sourceImage);
   };
 
-  const handleResetPhoto = () => {
+  const handleResetPhoto = async () => {
     if (originalPhoto) {
-      setProfile(prev => {
-        const updated = {
-          ...prev,
-          photoDataUrl: originalPhoto,
-          isBgRemoved: false
-        };
-        localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
-        return updated;
-      });
+      const updated = {
+        ...profile,
+        photoDataUrl: originalPhoto,
+        isBgRemoved: false
+      };
+      setProfile(updated);
+      localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
       setIsSaved(false);
+
+      if (updated.username && updated.name && updated.role) {
+        try {
+          await saveProfileToServer(updated);
+        } catch (err) {
+          console.error('Failed to sync reset photo to server:', err);
+        }
+      }
     }
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     if (!profile.name || !profile.role) return;
 
     setRegistering(true);
-    setTimeout(() => {
-      localStorage.setItem('posterforge_user_profile', JSON.stringify(profile));
+    localStorage.setItem('posterforge_user_profile', JSON.stringify(profile));
+    
+    try {
+      await saveProfileToServer(profile);
       setIsSaved(true);
-      setRegistering(false);
       setIsEditingProfile(false);
-    }, 400);
+    } catch (err) {
+      console.error('Failed to save profile to database:', err);
+      setIsSaved(true);
+      setIsEditingProfile(false);
+    } finally {
+      setRegistering(false);
+    }
   };
 
   const generateAndDownloadHD = async (template) => {

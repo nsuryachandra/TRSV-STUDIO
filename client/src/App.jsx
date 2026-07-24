@@ -9,7 +9,7 @@ import DevPortal from './components/DevPortal';
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(sessionStorage.getItem('posterforge_session') || 'null');
+      return JSON.parse(localStorage.getItem('posterforge_session') || 'null');
     } catch {
       return null;
     }
@@ -112,13 +112,13 @@ export default function App() {
 
   const handleLogin = (sessionUser) => {
     setUser(sessionUser);
-    sessionStorage.setItem('posterforge_session', JSON.stringify(sessionUser));
+    localStorage.setItem('posterforge_session', JSON.stringify(sessionUser));
     navigateTo('/gallery');
   };
 
   const handleLogout = () => {
     setUser(null);
-    sessionStorage.removeItem('posterforge_session');
+    localStorage.removeItem('posterforge_session');
     setSelectedTemplate(null);
     setMobileMenuOpen(false);
     navigateTo('/login');

@@ -357,6 +357,23 @@ export default function PropertiesPanel({ selectedId, setSelectedId, config, onC
               </div>
             </div>
 
+            {/* Free Aspect Ratio Toggle */}
+            <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-3">
+              <div>
+                <span className="text-slate-700 font-bold block">Free Size Custom Stretching</span>
+                <span className="text-[9px] text-slate-400 font-medium">Allow portrait box stretching to any ratio</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={photoConfig.freeSize === true} 
+                  onChange={(e) => updateSectionValue('photo', 'freeSize', e.target.checked)} 
+                  className="sr-only peer" 
+                />
+                <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+
             {/* AI Settings */}
             <div className="space-y-2 border-t border-slate-100 pt-3">
               <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1">

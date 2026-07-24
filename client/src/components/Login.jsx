@@ -190,14 +190,14 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center p-4 relative overflow-hidden select-none bg-slate-50">
+    <div className="h-full w-full flex items-center justify-center p-4 relative overflow-y-auto select-none bg-slate-50 py-8 sm:py-12">
       {/* Soft colorful background blur accents */}
       <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] rounded-full pointer-events-none bg-amber-200/30 blur-3xl" />
       <div className="absolute bottom-[-10%] right-[-5%] w-[45%] h-[45%] rounded-full pointer-events-none bg-blue-200/30 blur-3xl" />
       <div className="absolute top-[35%] right-[15%] w-[30%] h-[30%] rounded-full pointer-events-none bg-emerald-200/25 blur-3xl" />
 
       {/* Modern Card */}
-      <div className="relative z-10 w-full max-w-[440px]">
+      <div className="relative z-10 w-full max-w-[440px] my-auto">
         <div className="h-1.5 w-full rounded-t-2xl bg-gradient-to-r from-amber-400 via-emerald-400 to-blue-500" />
 
         <div className="bg-white/90 backdrop-blur-xl rounded-b-2xl border border-slate-200/80 shadow-2xl shadow-slate-900/10 overflow-hidden">
@@ -214,37 +214,37 @@ export default function Login({ onLogin }) {
           </div>
 
           {/* Main Role Selection (Supporter vs Admin) */}
-          <div className="px-6 pb-3">
-            <div className="flex gap-1.5 p-1.5 rounded-xl bg-slate-100/80 border border-slate-200/60">
+          <div className="px-4 sm:px-6 pb-3">
+            <div className="flex gap-1 p-1 rounded-xl bg-slate-100/80 border border-slate-200/60">
               <button
                 type="button"
                 onClick={() => setActiveTab('supporter')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2 px-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 ${
                   activeTab === 'supporter'
                     ? 'bg-white text-emerald-700 shadow-sm border border-emerald-200/60'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <User size={14} />
+                <User size={13} className="shrink-0" />
                 Supporter Member
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('admin')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 py-2 px-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all duration-200 ${
                   activeTab === 'admin'
                     ? 'bg-white text-blue-700 shadow-sm border border-blue-200/60'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <Shield size={14} />
+                <Shield size={13} className="shrink-0" />
                 Admin Studio
               </button>
             </div>
           </div>
 
           {/* Form Content */}
-          <div className="px-6 pb-6">
+          <div className="px-4 sm:px-6 pb-6">
             
             {/* Supporter Section */}
             {activeTab === 'supporter' && (
@@ -255,7 +255,7 @@ export default function Login({ onLogin }) {
                   <button
                     type="button"
                     onClick={() => { setMemberMode('login'); setMemberError(''); }}
-                    className={`flex-1 text-xs font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 text-[11px] sm:text-xs font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                       memberMode === 'login'
                         ? 'bg-emerald-600 text-white shadow-sm'
                         : 'text-emerald-800 hover:bg-emerald-100/60'
@@ -267,7 +267,7 @@ export default function Login({ onLogin }) {
                   <button
                     type="button"
                     onClick={() => { setMemberMode('register'); setMemberError(''); }}
-                    className={`flex-1 text-xs font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 text-[11px] sm:text-xs font-bold py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                       memberMode === 'register'
                         ? 'bg-emerald-600 text-white shadow-sm'
                         : 'text-emerald-800 hover:bg-emerald-100/60'
