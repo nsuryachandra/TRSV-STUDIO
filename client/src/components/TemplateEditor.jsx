@@ -88,6 +88,7 @@ export default function TemplateEditor({ template, onSave, onBack }) {
   const [gridEnabled, setGridEnabled] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [selectedId, setSelectedId] = useState(null); // 'photo', 'name', 'role'
+  const [spacePressed, setSpacePressed] = useState(false);
   
   // Main Template Config
   const [config, setConfig] = useState({
@@ -215,7 +216,20 @@ export default function TemplateEditor({ template, onSave, onBack }) {
 
   // Zoom controls
   const handleZoom = (factor) => {
-    setScale(prev => Math.max(0.1, Math.min(10, prev * factor)));
+    setScale(prev => {
+      const oldScale = prev;
+      const newScale = Math.max(0.1, Math.min(10, oldScale * factor));
+      
+      const centerX = stageDimensions.width / 2;
+      const centerY = stageDimensions.height / 2;
+      
+      setPosition(pos => ({
+        x: centerX - ((centerX - pos.x) / oldScale) * newScale,
+        y: centerY - ((centerY - pos.y) / oldScale) * newScale
+      }));
+      
+      return newScale;
+    });
   };
 
   const handleWheel = (e) => {
@@ -346,6 +360,12 @@ export default function TemplateEditor({ template, onSave, onBack }) {
         document.activeElement.tagName === 'TEXTAREA' ||
         document.activeElement.isContentEditable
       ) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setSpacePressed(true);
+        return;
+      }
       
       if (!selectedId || !latestConfigRef.current[selectedId]) return;
 
@@ -395,6 +415,11 @@ export default function TemplateEditor({ template, onSave, onBack }) {
     };
 
     const handleKeyUp = (e) => {
+      if (e.code === 'Space') {
+        setSpacePressed(false);
+        return;
+      }
+
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         if (isNudgingRef.current) {
           isNudgingRef.current = false;
@@ -500,11 +525,6 @@ export default function TemplateEditor({ template, onSave, onBack }) {
 
     let finalW = Math.max(40, newW);
     let finalH = Math.max(40, newH);
-
-    if (id === 'photo') {
-      finalW = Math.min(285, Math.max(245, finalW));
-      finalH = Math.min(430, Math.max(380, finalH));
-    }
 
     const newConfig = {
       ...config,
@@ -744,7 +764,7 @@ export default function TemplateEditor({ template, onSave, onBack }) {
         <div 
           ref={stageContainerRef}
           className={`flex-1 h-full bg-slate-100 overflow-hidden relative ${
-            activeTool === 'move' ? 'cursor-grab active:cursor-grabbing' : 
+            (activeTool === 'move' || spacePressed) ? 'cursor-grab active:cursor-grabbing' : 
             ['photo', 'name', 'role'].includes(activeTool) ? 'cursor-crosshair' : 'cursor-default'
           }`}
         >
@@ -766,11 +786,19 @@ export default function TemplateEditor({ template, onSave, onBack }) {
               scaleY={scale}
               x={position.x}
               y={position.y}
-              draggable={activeTool === 'move'}
+              draggable={activeTool === 'move' || spacePressed}
               onWheel={handleWheel}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
+              onDragEnd={(e) => {
+                if (e.target === stageRef.current) {
+                  setPosition({
+                    x: e.target.x(),
+                    y: e.target.y()
+                  });
+                }
+              }}
             >
               <Layer>
                 {/* Background image */}
