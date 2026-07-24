@@ -50,7 +50,17 @@ const initFallbackDb = () => {
           created_at: new Date().toISOString()
         }
       ],
-      users: [],
+      users: [
+        {
+          id: 1,
+          name: 'Surya Dev',
+          role: 'admin',
+          username: 'surya_dev',
+          password: 'surya',
+          photo_url: '',
+          created_at: new Date().toISOString()
+        }
+      ],
       analytics_logs: []
     };
     fs.writeFileSync(fallbackFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
@@ -177,6 +187,16 @@ async function initMysqlTables() {
         );
         console.log('Seeded default template in newly created MySQL database');
       }
+
+      // Seed default admin user if not exists
+      const [adminRows] = await connection.query('SELECT COUNT(*) as count FROM users WHERE username = ?', ['surya_dev']);
+      if (adminRows[0].count === 0) {
+        await connection.query(
+          'INSERT INTO users (name, role, username, password) VALUES (?, ?, ?, ?)',
+          ['Surya Dev', 'admin', 'surya_dev', 'surya']
+        );
+        console.log('Seeded default admin user "surya_dev" in MySQL');
+      }
       console.log('Successfully connected and initialized MySQL database tables.');
     } finally {
       connection.release();
@@ -254,7 +274,17 @@ function createSqliteTables() {
         photo_url TEXT DEFAULT '',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+    `, () => {
+      db.get('SELECT COUNT(*) as count FROM users WHERE username = ?', ['surya_dev'], (err, row) => {
+        if (!err && row && row.count === 0) {
+          db.run(
+            'INSERT INTO users (name, role, username, password) VALUES (?, ?, ?, ?)',
+            ['Surya Dev', 'admin', 'surya_dev', 'surya']
+          );
+          console.log('Seeded default admin user "surya_dev" in SQLite');
+        }
+      });
+    });
 
     db.run(`
       CREATE TABLE IF NOT EXISTS analytics_logs (
@@ -427,6 +457,40 @@ const dbAPI = {
         function(err) {
           if (err) return reject(err);
           resolve({ id, title, config });
+        }
+      );
+    });
+  },
+
+  updateTemplateImageUrl: (id, imageUrl) => {
+    return new Promise(async (resolve, reject) => {
+      if (useMysql) {
+        try {
+          await mysqlPool.query(
+            'UPDATE templates SET image_url = ? WHERE id = ?',
+            [imageUrl, id]
+          );
+          return resolve(true);
+        } catch (err) {
+          return reject(err);
+        }
+      }
+      if (useFallback) {
+        const data = getFallbackData();
+        const idx = data.templates.findIndex(t => t.id === parseInt(id));
+        if (idx !== -1) {
+          data.templates[idx].image_url = imageUrl;
+          saveFallbackData(data);
+          return resolve(true);
+        }
+        return resolve(false);
+      }
+      db.run(
+        'UPDATE templates SET image_url = ? WHERE id = ?',
+        [imageUrl, id],
+        function(err) {
+          if (err) return reject(err);
+          resolve(true);
         }
       );
     });

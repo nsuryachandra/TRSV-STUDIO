@@ -31,6 +31,22 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Admin Authentication Middleware
+const adminAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return res.status(401).json({ error: 'Unauthorized admin access' });
+  }
+  const token = authHeader.substring(6);
+  const credentials = Buffer.from(token, 'base64').toString('ascii');
+  const [username, password] = credentials.split(':');
+  if (username === 'surya_dev' && password === 'surya') {
+    next();
+  } else {
+    res.status(401).json({ error: 'Unauthorized admin credentials' });
+  }
+};
+
 // Serve static uploaded files
 app.use('/uploads', express.static(uploadDir));
 
@@ -50,6 +66,43 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }
 });
+
+// Supabase Client Initialization
+const { createClient } = require('@supabase/supabase-js');
+let supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+let supabase = null;
+
+if (supabaseUrl && supabaseKey && supabaseUrl !== 'your_supabase_project_url') {
+  try {
+    // Sanitize URL: strip trailing slash and '/rest/v1' suffix if present
+    supabaseUrl = supabaseUrl.trim().replace(/\/$/, '');
+    if (supabaseUrl.endsWith('/rest/v1')) {
+      supabaseUrl = supabaseUrl.substring(0, supabaseUrl.length - 8);
+    }
+    
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client initialized for template storage.');
+    
+    // Perform startup pre-flight check to verify if the 'templates' bucket is accessible
+    supabase.storage.getBucket('templates')
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn('⚠️ Supabase Storage Pre-flight Warning: Bucket "templates" is not accessible or does not exist.', error.message);
+          console.log('👉 Make sure you have created a public bucket named "templates" in your Supabase project dashboard.');
+        } else {
+          console.log('✅ Supabase Storage Pre-flight Success: Bucket "templates" is accessible and fully working!');
+        }
+      })
+      .catch(err => {
+        console.warn('⚠️ Supabase Storage Pre-flight Exception:', err.message);
+      });
+  } catch (supabaseErr) {
+    console.warn('Failed to initialize Supabase client:', supabaseErr.message);
+  }
+} else {
+  console.log('Using database base64 template image storage (Supabase not configured).');
+}
 
 // API Routes
 
@@ -133,18 +186,50 @@ app.get('/api/templates/:id', async (req, res) => {
 });
 
 // Create new template
-app.post('/api/templates', upload.single('poster'), async (req, res) => {
+app.post('/api/templates', upload.single('poster'), adminAuth, async (req, res) => {
   try {
     const { title, config } = req.body;
     if (!req.file) {
       return res.status(400).json({ error: 'Poster image file is required' });
     }
     
-    // Convert template to Base64 to make it environment-independent (MySQL LONGTEXT database storage)
+    let imageUrl = '';
     const fileData = fs.readFileSync(req.file.path);
     const mimeType = req.file.mimetype;
-    const base64Data = fileData.toString('base64');
-    const imageUrl = `data:${mimeType};base64,${base64Data}`;
+
+    if (supabase) {
+      try {
+        const fileExt = path.extname(req.file.originalname) || '.png';
+        const fileName = `poster-${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExt}`;
+        
+        // Upload file buffer to Supabase templates storage bucket
+        const { data, error } = await supabase.storage
+          .from('templates')
+          .upload(fileName, fileData, {
+            contentType: mimeType,
+            upsert: true
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        // Retrieve public URL from Supabase
+        const { data: urlData } = supabase.storage
+          .from('templates')
+          .getPublicUrl(fileName);
+        
+        imageUrl = urlData.publicUrl;
+        console.log('Successfully uploaded template to Supabase Storage:', imageUrl);
+      } catch (supabaseErr) {
+        console.warn('Supabase upload failed, falling back to Base64 storage:', supabaseErr.message);
+        const base64Data = fileData.toString('base64');
+        imageUrl = `data:${mimeType};base64,${base64Data}`;
+      }
+    } else {
+      const base64Data = fileData.toString('base64');
+      imageUrl = `data:${mimeType};base64,${base64Data}`;
+    }
     
     // Cleanup local file immediately
     try {
@@ -163,7 +248,7 @@ app.post('/api/templates', upload.single('poster'), async (req, res) => {
 });
 
 // Update template
-app.put('/api/templates/:id', async (req, res) => {
+app.put('/api/templates/:id', adminAuth, async (req, res) => {
   try {
     const { title, config } = req.body;
     const updated = await db.updateTemplate(req.params.id, title, config);
@@ -177,7 +262,7 @@ app.put('/api/templates/:id', async (req, res) => {
 });
 
 // Delete template
-app.delete('/api/templates/:id', async (req, res) => {
+app.delete('/api/templates/:id', adminAuth, async (req, res) => {
   try {
     const template = await db.getTemplate(req.params.id);
     if (!template) {
@@ -202,7 +287,7 @@ app.delete('/api/templates/:id', async (req, res) => {
 });
 
 // Duplicate template
-app.post('/api/templates/:id/duplicate', async (req, res) => {
+app.post('/api/templates/:id/duplicate', adminAuth, async (req, res) => {
   try {
     const original = await db.getTemplate(req.params.id);
     if (!original) {
@@ -252,7 +337,7 @@ app.post('/api/analytics/log', async (req, res) => {
   }
 });
 
-app.get('/api/analytics/logs', async (req, res) => {
+app.get('/api/analytics/logs', adminAuth, async (req, res) => {
   try {
     const logs = await db.getAnalyticsLogs();
     res.json(logs);
@@ -261,7 +346,7 @@ app.get('/api/analytics/logs', async (req, res) => {
   }
 });
 
-app.post('/api/analytics/logs/clear', async (req, res) => {
+app.post('/api/analytics/logs/clear', adminAuth, async (req, res) => {
   try {
     await db.clearAnalyticsLogs();
     res.json({ success: true });
@@ -271,7 +356,7 @@ app.post('/api/analytics/logs/clear', async (req, res) => {
 });
 
 // Users Profile routes
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', adminAuth, async (req, res) => {
   try {
     const users = await db.getUsers();
     res.json(users);

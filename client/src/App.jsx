@@ -15,6 +15,7 @@ export default function App() {
     }
   });
 
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [activeTab, setActiveTab] = useState('gallery'); // 'gallery', 'upload', 'user-portal', 'editor'
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -26,6 +27,65 @@ export default function App() {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadPreview, setUploadPreview] = useState('');
   const [savingUpload, setSavingUpload] = useState(false);
+
+  // Helper to obtain authorization headers for Admin
+  const getAdminHeaders = () => {
+    try {
+      return {
+        'Authorization': `Basic ${btoa('surya_dev:surya')}`
+      };
+    } catch {
+      return {};
+    }
+  };
+
+  // Synchronize browser history and path changes
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
+  // Setup path and tab guards
+  useEffect(() => {
+    // If not logged in, enforce path '/login'
+    if (!user) {
+      if (currentPath !== '/login') {
+        navigateTo('/login');
+      }
+      return;
+    }
+
+    // Role-based path security guards
+    if (user.role === 'supporter') {
+      // Supporters can only access /portal or /
+      if (currentPath !== '/portal' && currentPath !== '/') {
+        navigateTo('/portal');
+      }
+      setActiveTab('user-portal');
+    } else if (user.role === 'admin') {
+      // Admins can access /upload, /devanalytics, /editor, /login, or /
+      if (currentPath === '/devanalytics') {
+        setActiveTab('dev');
+      } else if (currentPath === '/upload') {
+        setActiveTab('upload');
+      } else if (currentPath === '/editor') {
+        setActiveTab('editor');
+      } else if (currentPath === '/login') {
+        navigateTo('/');
+        setActiveTab('gallery');
+      } else {
+        setActiveTab('gallery');
+      }
+    }
+  }, [currentPath, user]);
 
   // Load templates from database on mount
   const fetchTemplates = async () => {
@@ -46,20 +106,14 @@ export default function App() {
   useEffect(() => {
     if (user) {
       fetchTemplates();
-      if (user.role === 'supporter') {
-        setActiveTab('user-portal');
-      }
     }
   }, [user]);
 
   const handleLogin = (sessionUser) => {
     setUser(sessionUser);
     sessionStorage.setItem('posterforge_session', JSON.stringify(sessionUser));
-    if (sessionUser.role === 'admin') {
-      setActiveTab('gallery');
-    } else {
-      setActiveTab('user-portal');
-    }
+    const dest = sessionUser.role === 'admin' ? '/' : '/portal';
+    navigateTo(dest);
   };
 
   const handleLogout = () => {
@@ -67,18 +121,20 @@ export default function App() {
     sessionStorage.removeItem('posterforge_session');
     setSelectedTemplate(null);
     setMobileMenuOpen(false);
+    navigateTo('/login');
   };
 
   const handleSelectTemplate = (template, mode) => {
     setSelectedTemplate(template);
-    setActiveTab(mode);
+    navigateTo('/editor');
     setMobileMenuOpen(false);
   };
 
   const handleDuplicateTemplate = async (id) => {
     try {
       const res = await fetch(`/api/templates/${id}/duplicate`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAdminHeaders()
       });
       if (res.ok) {
         fetchTemplates();
@@ -92,13 +148,14 @@ export default function App() {
     if (!confirm('Are you sure you want to delete this template?')) return;
     try {
       const res = await fetch(`/api/templates/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAdminHeaders()
       });
       if (res.ok) {
         fetchTemplates();
         if (selectedTemplate && selectedTemplate.id === id) {
           setSelectedTemplate(null);
-          setActiveTab('gallery');
+          navigateTo('/');
         }
       }
     } catch (err) {
@@ -112,7 +169,8 @@ export default function App() {
       const res = await fetch(`/api/templates/${selectedTemplate.id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
         },
         body: JSON.stringify({
           title: selectedTemplate.title,
@@ -158,7 +216,8 @@ export default function App() {
     try {
       const res = await fetch('/api/templates', {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: getAdminHeaders()
       });
       if (res.ok) {
         const newTemplate = await res.json();
@@ -176,19 +235,19 @@ export default function App() {
   };
 
   // 1. Unauthenticated Gateway
-  if (!user) {
+  if (!user || currentPath === '/login') {
     return <Login onLogin={handleLogin} />;
   }
 
   // 2. Fullscreen Editor Mode (Admin only)
-  if (activeTab === 'editor' && selectedTemplate && user.role === 'admin') {
+  if (currentPath === '/editor' && selectedTemplate && user.role === 'admin') {
     return (
       <TemplateEditor
         template={selectedTemplate}
         onSave={handleSaveTemplateConfig}
         onBack={() => {
           setSelectedTemplate(null);
-          setActiveTab('gallery');
+          navigateTo('/');
         }}
       />
     );
@@ -290,36 +349,36 @@ export default function App() {
             <div className="space-y-1">
               <span className="px-2 text-[9px] font-bold tracking-widest uppercase block mb-2 text-slate-400">Admin Area</span>
               <button
-                onClick={() => { setSelectedTemplate(null); setActiveTab('gallery'); setMobileMenuOpen(false); }}
-                className={`nav-item ${activeTab === 'gallery' ? 'active-yellow' : ''}`}
+                onClick={() => { setSelectedTemplate(null); navigateTo('/'); setMobileMenuOpen(false); }}
+                className={`nav-item ${currentPath === '/' ? 'active-yellow' : ''}`}
               >
                 <LayoutTemplate size={17} />
                 Template Gallery
               </button>
               <button
-                onClick={() => { setSelectedTemplate(null); setActiveTab('upload'); setMobileMenuOpen(false); }}
-                className={`nav-item ${activeTab === 'upload' ? 'active-blue' : ''}`}
+                onClick={() => { setSelectedTemplate(null); navigateTo('/upload'); setMobileMenuOpen(false); }}
+                className={`nav-item ${currentPath === '/upload' ? 'active-blue' : ''}`}
               >
                 <UploadCloud size={17} />
                 Upload Poster
               </button>
               <button
-                onClick={() => { setSelectedTemplate(null); setActiveTab('dev'); setMobileMenuOpen(false); }}
-                className={`nav-item ${activeTab === 'dev' ? 'active-amber' : ''}`}
+                onClick={() => { setSelectedTemplate(null); navigateTo('/devanalytics'); setMobileMenuOpen(false); }}
+                className={`nav-item ${currentPath === '/devanalytics' ? 'active-amber' : ''}`}
               >
                 <Terminal size={17} />
                 Dev Analytics
               </button>
             </div>
-
+ 
             <div className="h-[1px] bg-slate-100 my-2" />
-
+ 
             {/* Supporter View Controls */}
             <div className="space-y-1">
               <span className="px-2 text-[9px] font-bold tracking-widest uppercase block mb-2 text-slate-400">Supporter Preview</span>
               <button
-                onClick={() => { setSelectedTemplate(null); setActiveTab('user-portal'); setMobileMenuOpen(false); }}
-                className={`nav-item ${activeTab === 'user-portal' ? 'active-green' : ''}`}
+                onClick={() => { setSelectedTemplate(null); navigateTo('/portal'); setMobileMenuOpen(false); }}
+                className={`nav-item ${currentPath === '/portal' ? 'active-green' : ''}`}
               >
                 <Users size={17} />
                 Supporter Portal
@@ -443,7 +502,7 @@ export default function App() {
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('gallery')}
+                  onClick={() => navigateTo('/')}
                   className="btn-ghost"
                 >
                   Cancel

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Activity, Download, RefreshCw, Trash2, Search, Calendar, ShieldAlert, Cpu } from 'lucide-react';
+import { Terminal, Activity, Download, RefreshCw, Trash2, Search, Calendar, ShieldAlert, Cpu, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function DevPortal() {
@@ -8,12 +8,24 @@ export default function DevPortal() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
 
+  const getAdminHeaders = () => {
+    try {
+      return {
+        'Authorization': `Basic ${btoa('surya_dev:surya')}`
+      };
+    } catch {
+      return {};
+    }
+  };
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/analytics/logs');
+      const res = await fetch('/api/analytics/logs', {
+        headers: getAdminHeaders()
+      });
       if (res.ok) {
-        const data = res.ok ? await res.json() : [];
+        const data = await res.json();
         setLogs(data);
       }
     } catch (err) {
@@ -30,7 +42,10 @@ export default function DevPortal() {
   const handleClearLogs = async () => {
     if (!confirm('Are you sure you want to clear all analytics logs? This cannot be undone.')) return;
     try {
-      const res = await fetch('/api/analytics/logs/clear', { method: 'POST' });
+      const res = await fetch('/api/analytics/logs/clear', {
+        method: 'POST',
+        headers: getAdminHeaders()
+      });
       if (res.ok) {
         fetchLogs();
       }
