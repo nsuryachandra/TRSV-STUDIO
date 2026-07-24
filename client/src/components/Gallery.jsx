@@ -40,7 +40,7 @@ export default function Gallery({ templates, onSelectTemplate, onDuplicateTempla
           placeholder="Search templates..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pf-input pl-10 py-2.5 shadow-sm text-sm"
+          className="pf-input pf-input-has-icon py-2.5 shadow-sm text-sm"
         />
       </div>
 
