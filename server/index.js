@@ -5,6 +5,10 @@ const fs = require('fs');
 const multer = require('multer');
 const db = require('./db');
 
+console.log('--- TRSV Server Startup Diagnostics ---');
+console.log('Process CWD:', process.cwd());
+console.log('__dirname:', __dirname);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -209,7 +213,11 @@ app.get('/api/users', async (req, res) => {
 
 // Serve React client build in production
 const clientDistPath = path.join(__dirname, '../client/dist');
-if (fs.existsSync(clientDistPath)) {
+console.log('Target client/dist path:', clientDistPath);
+const distExists = fs.existsSync(clientDistPath);
+console.log('Does client/dist exist?:', distExists);
+
+if (distExists) {
   app.use(express.static(clientDistPath));
   
   // SPA fallback — serve index.html for all non-API routes
@@ -217,6 +225,18 @@ if (fs.existsSync(clientDistPath)) {
     res.sendFile(path.join(clientDistPath, 'index.html'));
   });
   console.log('Serving production React build from:', clientDistPath);
+} else {
+  console.error('CRITICAL: client/dist folder was not found! The server cannot serve the React frontend.');
+  try {
+    const parentDir = path.join(__dirname, '..');
+    console.log('Files in parent directory:', fs.readdirSync(parentDir));
+    const clientDir = path.join(__dirname, '../client');
+    if (fs.existsSync(clientDir)) {
+      console.log('Files in client directory:', fs.readdirSync(clientDir));
+    }
+  } catch (err) {
+    console.error('Failed to list directories:', err.message);
+  }
 }
 
 // Start listening
