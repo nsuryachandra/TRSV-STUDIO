@@ -277,9 +277,7 @@ export default function App() {
         <div>
           {/* Logo & Branding */}
           <div className="h-16 flex items-center px-5 gap-3 border-b border-slate-100">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-tr from-amber-400 to-yellow-300 shadow-md shadow-amber-400/20">
-              <Sparkles size={18} className="text-slate-950" strokeWidth={2.5} />
-            </div>
+            <img src="/trsv_logo.png" className="w-9 h-9 rounded-xl object-contain shrink-0 shadow-sm" alt="TRSV Logo" />
             <div>
               <h1 className="text-sm font-black leading-none tracking-wide text-slate-900 font-poppins">
                 TRSV <span className="text-amber-500">Design Studio</span>

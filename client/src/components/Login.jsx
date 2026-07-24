@@ -204,9 +204,7 @@ export default function Login({ onLogin }) {
           
           {/* Header */}
           <div className="px-8 pt-7 pb-5 text-center relative">
-            <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center bg-gradient-to-tr from-amber-400 to-yellow-300 shadow-lg shadow-amber-400/30">
-              <Sparkles size={26} className="text-slate-950" strokeWidth={2.5} />
-            </div>
+            <img src="/trsv_logo.png" className="w-14 h-14 mx-auto mb-3 object-contain" alt="TRSV Logo" />
             <h1 className="text-2xl font-black tracking-tight text-slate-900 font-poppins">
               TRSV <span className="text-amber-500">Design Studio</span>
             </h1>
