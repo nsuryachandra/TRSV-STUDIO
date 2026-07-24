@@ -333,13 +333,12 @@ export default function PropertiesPanel({ selectedId, setSelectedId, config, onC
                     value={Math.round(photoConfig.width || 260)}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 260;
-                      // Clamp width between 245 and 285
-                      const clamped = Math.min(285, Math.max(245, val));
+                      // Free-form resizing with a minimum safety limit of 10px
+                      const clamped = Math.max(10, val);
                       updateSectionValue('photo', 'width', clamped);
                     }}
                     className="w-full text-[11px] py-1 px-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100"
                   />
-                  <span className="text-[8px] text-slate-400 block mt-0.5 font-semibold">Limit: 245 - 285px</span>
                 </div>
                 <div>
                   <label className="text-[9px] text-slate-500 block mb-0.5">Height (px)</label>
@@ -348,13 +347,12 @@ export default function PropertiesPanel({ selectedId, setSelectedId, config, onC
                     value={Math.round(photoConfig.height || 400)}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 400;
-                      // Clamp height between 380 and 430
-                      const clamped = Math.min(430, Math.max(380, val));
+                      // Free-form resizing with a minimum safety limit of 10px
+                      const clamped = Math.max(10, val);
                       updateSectionValue('photo', 'height', clamped);
                     }}
                     className="w-full text-[11px] py-1 px-2 rounded-lg bg-white border border-slate-200 text-slate-900 font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100"
                   />
-                  <span className="text-[8px] text-slate-400 block mt-0.5 font-semibold">Limit: 380 - 430px</span>
                 </div>
               </div>
             </div>
