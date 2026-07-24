@@ -269,13 +269,16 @@ app.delete('/api/templates/:id', adminAuth, async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
     
-    // Attempt to delete image from disk, but do not block db deletion if it fails
-    const filePath = path.join(__dirname, template.image_url);
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch (fileErr) {
-        console.warn('Failed to delete template image file from disk:', fileErr.message);
+    // Attempt to delete image from disk only if it is a local filesystem path
+    if (template.image_url && !template.image_url.startsWith('data:') && !template.image_url.startsWith('http://') && !template.image_url.startsWith('https://')) {
+      const originalFilename = path.basename(template.image_url);
+      const filePath = path.join(uploadDir, originalFilename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fileErr) {
+          console.warn('Failed to delete template image file from disk:', fileErr.message);
+        }
       }
     }
     
@@ -295,7 +298,7 @@ app.post('/api/templates/:id/duplicate', adminAuth, async (req, res) => {
     }
     
     let newImageUrl = '';
-    if (original.image_url.startsWith('data:')) {
+    if (original.image_url.startsWith('data:') || original.image_url.startsWith('http://') || original.image_url.startsWith('https://')) {
       newImageUrl = original.image_url;
     } else {
       const originalFilename = path.basename(original.image_url);
