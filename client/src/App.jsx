@@ -65,24 +65,25 @@ export default function App() {
 
     // Role-based path security guards
     if (user.role === 'supporter') {
-      // Supporters can only access /portal or /
-      if (currentPath !== '/portal' && currentPath !== '/') {
-        navigateTo('/portal');
+      // Supporters can only access /portal or /gallery
+      if (currentPath !== '/portal' && currentPath !== '/gallery') {
+        navigateTo('/gallery');
       }
       setActiveTab('user-portal');
     } else if (user.role === 'admin') {
-      // Admins can access /upload, /devanalytics, /editor, /login, or /
+      // Admins can access /upload, /devanalytics, /editor, /gallery, or /
       if (currentPath === '/devanalytics') {
         setActiveTab('dev');
       } else if (currentPath === '/upload') {
         setActiveTab('upload');
       } else if (currentPath === '/editor') {
         setActiveTab('editor');
-      } else if (currentPath === '/login') {
-        navigateTo('/');
+      } else if (currentPath === '/gallery') {
         setActiveTab('gallery');
+      } else if (currentPath === '/' || currentPath === '/login') {
+        navigateTo('/gallery');
       } else {
-        setActiveTab('gallery');
+        navigateTo('/gallery');
       }
     }
   }, [currentPath, user]);
@@ -112,8 +113,7 @@ export default function App() {
   const handleLogin = (sessionUser) => {
     setUser(sessionUser);
     sessionStorage.setItem('posterforge_session', JSON.stringify(sessionUser));
-    const dest = sessionUser.role === 'admin' ? '/' : '/portal';
-    navigateTo(dest);
+    navigateTo('/gallery');
   };
 
   const handleLogout = () => {
@@ -155,7 +155,7 @@ export default function App() {
         fetchTemplates();
         if (selectedTemplate && selectedTemplate.id === id) {
           setSelectedTemplate(null);
-          navigateTo('/');
+          navigateTo('/gallery');
         }
       }
     } catch (err) {
@@ -247,7 +247,7 @@ export default function App() {
         onSave={handleSaveTemplateConfig}
         onBack={() => {
           setSelectedTemplate(null);
-          navigateTo('/');
+          navigateTo('/gallery');
         }}
       />
     );
@@ -349,8 +349,8 @@ export default function App() {
             <div className="space-y-1">
               <span className="px-2 text-[9px] font-bold tracking-widest uppercase block mb-2 text-slate-400">Admin Area</span>
               <button
-                onClick={() => { setSelectedTemplate(null); navigateTo('/'); setMobileMenuOpen(false); }}
-                className={`nav-item ${currentPath === '/' ? 'active-yellow' : ''}`}
+                onClick={() => { setSelectedTemplate(null); navigateTo('/gallery'); setMobileMenuOpen(false); }}
+                className={`nav-item ${currentPath === '/gallery' ? 'active-yellow' : ''}`}
               >
                 <LayoutTemplate size={17} />
                 Template Gallery
@@ -502,7 +502,7 @@ export default function App() {
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => navigateTo('/')}
+                  onClick={() => navigateTo('/gallery')}
                   className="btn-ghost"
                 >
                   Cancel
