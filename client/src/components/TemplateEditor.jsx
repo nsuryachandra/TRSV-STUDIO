@@ -820,6 +820,8 @@ export default function TemplateEditor({ template, onSave, onBack }) {
                     id="photo"
                     x={config.photo.x}
                     y={config.photo.y}
+                    width={config.photo.width}
+                    height={config.photo.height}
                     draggable={activeTool === 'select'}
                     onClick={() => { if (activeTool === 'select') setSelectedId('photo'); }}
                     onTap={() => { if (activeTool === 'select') setSelectedId('photo'); }}
@@ -853,6 +855,8 @@ export default function TemplateEditor({ template, onSave, onBack }) {
                     id="name"
                     x={config.name.x}
                     y={config.name.y}
+                    width={config.name.width}
+                    height={config.name.height}
                     draggable={activeTool === 'select'}
                     onClick={() => { if (activeTool === 'select') setSelectedId('name'); }}
                     onTap={() => { if (activeTool === 'select') setSelectedId('name'); }}
@@ -885,6 +889,8 @@ export default function TemplateEditor({ template, onSave, onBack }) {
                     id="role"
                     x={config.role.x}
                     y={config.role.y}
+                    width={config.role.width}
+                    height={config.role.height}
                     draggable={activeTool === 'select'}
                     onClick={() => { if (activeTool === 'select') setSelectedId('role'); }}
                     onTap={() => { if (activeTool === 'select') setSelectedId('role'); }}
