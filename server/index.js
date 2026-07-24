@@ -155,9 +155,14 @@ app.delete('/api/templates/:id', async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
     
+    // Attempt to delete image from disk, but do not block db deletion if it fails
     const filePath = path.join(__dirname, template.image_url);
     if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+      try {
+        fs.unlinkSync(filePath);
+      } catch (fileErr) {
+        console.warn('Failed to delete template image file from disk:', fileErr.message);
+      }
     }
     
     await db.deleteTemplate(req.params.id);

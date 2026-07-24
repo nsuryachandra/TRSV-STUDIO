@@ -112,6 +112,14 @@ async function initMysqlTables() {
   try {
     const connection = await mysqlPool.getConnection();
     try {
+      // Check if templates table exists in MySQL before creating
+      const [tableCheck] = await connection.query(`
+        SELECT COUNT(*) as exists_count 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() AND table_name = 'templates'
+      `);
+      const tableExisted = tableCheck && tableCheck[0] && tableCheck[0].exists_count > 0;
+
       await connection.query(`
         CREATE TABLE IF NOT EXISTS templates (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -134,9 +142,8 @@ async function initMysqlTables() {
         )
       `);
 
-      // Seed default template if tables are empty
-      const [rows] = await connection.query('SELECT COUNT(*) as count FROM templates');
-      if (rows && rows[0] && rows[0].count === 0) {
+      // Seed default template only if templates table is brand new (didn't exist)
+      if (!tableExisted) {
         const defaultConfig = {
           photo: { x: 35, y: 930, width: 260, height: 400, radius: 0, circle: false, autoCrop: true, faceCenter: true, removeBg: true, blendMode: 'normal', shadow: true, shadowBlur: 18, shadowOpacity: 0.18, shadowDistance: 4, edgeFeather: 28, scale: 1.0, rotation: 0, anchorSide: 'left', rimLightColor: '#FFD700', rimLightOpacity: 0.10, rimLightThickness: 3, fadeDistance: 80 },
           name: { x: 140, y: 780, width: 800, height: 80, font: 'Bebas Neue', size: 64, weight: '700', spacing: 2, uppercase: true, align: 'center', color: '#FFFFFF', shadow: true, shadowBlur: 6, shadowOpacity: 0.25, autoResize: true, minSize: 42, maxSize: 70, maxLines: 1 },
@@ -146,7 +153,7 @@ async function initMysqlTables() {
           'INSERT INTO templates (title, image_url, config) VALUES (?, ?, ?)',
           ['TRSV State Campaign Poster', '/uploads/campaign_poster.png', JSON.stringify(defaultConfig)]
         );
-        console.log('Seeded default template in MySQL database');
+        console.log('Seeded default template in newly created MySQL database');
       }
       console.log('Successfully connected and initialized MySQL database tables.');
     } finally {
@@ -186,17 +193,21 @@ function initSqliteDb() {
 
 function createSqliteTables() {
   db.serialize(() => {
-    db.run(`
-      CREATE TABLE IF NOT EXISTS templates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        image_url TEXT NOT NULL,
-        config TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, () => {
-      db.get('SELECT COUNT(*) as count FROM templates', [], (err, row) => {
-        if (!err && row && row.count === 0) {
+    // Check if templates table exists
+    db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='templates'", [], (err, row) => {
+      const tableExisted = !!row;
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS templates (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          image_url TEXT NOT NULL,
+          config TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, () => {
+        // Seed default template only if table is brand new
+        if (!tableExisted) {
           const defaultConfig = {
             photo: { x: 35, y: 930, width: 260, height: 400, radius: 0, circle: false, autoCrop: true, faceCenter: true, removeBg: true, blendMode: 'normal', shadow: true, shadowBlur: 18, shadowOpacity: 0.18, shadowDistance: 4, edgeFeather: 28, scale: 1.0, rotation: 0, anchorSide: 'left', rimLightColor: '#FFD700', rimLightOpacity: 0.10, rimLightThickness: 3, fadeDistance: 80 },
             name: { x: 140, y: 780, width: 800, height: 80, font: 'Bebas Neue', size: 64, weight: '700', spacing: 2, uppercase: true, align: 'center', color: '#FFFFFF', shadow: true, shadowBlur: 6, shadowOpacity: 0.25, autoResize: true, minSize: 42, maxSize: 70, maxLines: 1 },
@@ -206,6 +217,7 @@ function createSqliteTables() {
             'INSERT INTO templates (title, image_url, config) VALUES (?, ?, ?)',
             ['TRSV State Campaign Poster', '/uploads/campaign_poster.png', JSON.stringify(defaultConfig)]
           );
+          console.log('Seeded default template in newly created SQLite database');
         }
       });
     });
