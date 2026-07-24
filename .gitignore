@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+*.db
+db_fallback.json
+.DS_Store
+Thumbs.db
