@@ -20,6 +20,14 @@ if (!fs.existsSync(uploadDir)) {
 
 // Enable CORS and JSON body parser
 app.use(cors());
+
+// Enable Cross-Origin Isolation headers to support WebAssembly multi-threading for background removal
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 

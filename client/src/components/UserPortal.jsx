@@ -80,7 +80,7 @@ export default function UserPortal({ templates }) {
       const sourceImage = originalPhoto || profile.photoDataUrl;
 
       const blob = await removeBackground(sourceImage, {
-        model: 'medium',
+        model: 'small',
         progress: (stage, current, total) => {
           const pct = Math.round((current / total) * 100);
           if (stage.includes('fetch')) {
