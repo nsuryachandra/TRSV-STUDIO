@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutTemplate, UploadCloud, Users, Sparkles, FolderHeart, Plus, RefreshCw, X, LogOut, Menu } from 'lucide-react';
+import { LayoutTemplate, UploadCloud, Users, Sparkles, FolderHeart, Plus, RefreshCw, X, LogOut, Menu, Terminal, Activity } from 'lucide-react';
 import Gallery from './components/Gallery';
 import TemplateEditor from './components/TemplateEditor';
 import UserPortal from './components/UserPortal';
 import Login from './components/Login';
+import DevPortal from './components/DevPortal';
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -302,6 +303,13 @@ export default function App() {
                 <UploadCloud size={17} />
                 Upload Poster
               </button>
+              <button
+                onClick={() => { setSelectedTemplate(null); setActiveTab('dev'); setMobileMenuOpen(false); }}
+                className={`nav-item ${activeTab === 'dev' ? 'active-amber' : ''}`}
+              >
+                <Terminal size={17} />
+                Dev Analytics
+              </button>
             </div>
 
             <div className="h-[1px] bg-slate-100 my-2" />
@@ -465,6 +473,11 @@ export default function App() {
         {/* USER PORTAL TAB */}
         {activeTab === 'user-portal' && (
           <UserPortal templates={templates} />
+        )}
+
+        {/* DEV PORTAL TAB */}
+        {activeTab === 'dev' && (
+          <DevPortal />
         )}
       </main>
     </div>

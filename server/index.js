@@ -94,6 +94,15 @@ app.post('/api/auth/login', async (req, res) => {
       return res.json({ success: false, error: 'Username and password are required' });
     }
     const member = await db.loginMember(username, password);
+    
+    // Log login event
+    try {
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+      await db.logEvent('login', member.name || username, ip, JSON.stringify({ role: member.role, username: member.username }));
+    } catch (logErr) {
+      console.warn('Failed to log login event:', logErr.message);
+    }
+    
     res.json({ success: true, ...member });
   } catch (err) {
     res.json({ success: false, error: err.message });
@@ -131,7 +140,19 @@ app.post('/api/templates', upload.single('poster'), async (req, res) => {
       return res.status(400).json({ error: 'Poster image file is required' });
     }
     
-    const imageUrl = `/uploads/${req.file.filename}`;
+    // Convert template to Base64 to make it environment-independent (MySQL LONGTEXT database storage)
+    const fileData = fs.readFileSync(req.file.path);
+    const mimeType = req.file.mimetype;
+    const base64Data = fileData.toString('base64');
+    const imageUrl = `data:${mimeType};base64,${base64Data}`;
+    
+    // Cleanup local file immediately
+    try {
+      fs.unlinkSync(req.file.path);
+    } catch (unlinkErr) {
+      console.warn('Failed to delete temp template file:', unlinkErr.message);
+    }
+
     const parsedConfig = JSON.parse(config || '{}');
     
     const newTemplate = await db.createTemplate(title || 'Untitled Poster', imageUrl, parsedConfig);
@@ -188,20 +209,25 @@ app.post('/api/templates/:id/duplicate', async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
     
-    const originalFilename = path.basename(original.image_url);
-    const ext = path.extname(originalFilename);
-    const newFilename = 'poster-copy-' + Date.now() + ext;
-    
-    const originalPath = path.join(uploadDir, originalFilename);
-    const newPath = path.join(uploadDir, newFilename);
-    
-    if (fs.existsSync(originalPath)) {
-      fs.copyFileSync(originalPath, newPath);
+    let newImageUrl = '';
+    if (original.image_url.startsWith('data:')) {
+      newImageUrl = original.image_url;
     } else {
-      return res.status(400).json({ error: 'Original poster file not found on disk' });
+      const originalFilename = path.basename(original.image_url);
+      const ext = path.extname(originalFilename);
+      const newFilename = 'poster-copy-' + Date.now() + ext;
+      
+      const originalPath = path.join(uploadDir, originalFilename);
+      const newPath = path.join(uploadDir, newFilename);
+      
+      if (fs.existsSync(originalPath)) {
+        fs.copyFileSync(originalPath, newPath);
+      } else {
+        return res.status(400).json({ error: 'Original poster file not found on disk' });
+      }
+      newImageUrl = `/uploads/${newFilename}`;
     }
     
-    const newImageUrl = `/uploads/${newFilename}`;
     const duplicated = await db.createTemplate(
       `${original.title} (Copy)`,
       newImageUrl,
@@ -209,6 +235,36 @@ app.post('/api/templates/:id/duplicate', async (req, res) => {
     );
     
     res.status(201).json(duplicated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Analytics Logging API
+app.post('/api/analytics/log', async (req, res) => {
+  try {
+    const { event_type, username, details } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    await db.logEvent(event_type || 'custom', username || 'Anonymous', ip, details || '');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/analytics/logs', async (req, res) => {
+  try {
+    const logs = await db.getAnalyticsLogs();
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/analytics/logs/clear', async (req, res) => {
+  try {
+    await db.clearAnalyticsLogs();
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

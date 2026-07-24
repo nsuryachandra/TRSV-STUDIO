@@ -50,7 +50,8 @@ const initFallbackDb = () => {
           created_at: new Date().toISOString()
         }
       ],
-      users: []
+      users: [],
+      analytics_logs: []
     };
     fs.writeFileSync(fallbackFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
     console.log('Seeded default template in JSON fallback db');
@@ -63,9 +64,10 @@ const getFallbackData = () => {
     const data = fs.readFileSync(fallbackFilePath, 'utf-8');
     const parsed = JSON.parse(data);
     if (!parsed.users) parsed.users = [];
+    if (!parsed.analytics_logs) parsed.analytics_logs = [];
     return parsed;
   } catch (error) {
-    return { templates: [], users: [] };
+    return { templates: [], users: [], analytics_logs: [] };
   }
 };
 
@@ -124,8 +126,28 @@ async function initMysqlTables() {
         CREATE TABLE IF NOT EXISTS templates (
           id INT AUTO_INCREMENT PRIMARY KEY,
           title VARCHAR(255) NOT NULL,
-          image_url VARCHAR(255) NOT NULL,
+          image_url LONGTEXT NOT NULL,
           config TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Upgrade image_url column type to LONGTEXT if it was VARCHAR previously
+      try {
+        await connection.query(`
+          ALTER TABLE templates MODIFY COLUMN image_url LONGTEXT NOT NULL
+        `);
+      } catch (colErr) {
+        console.log('Templates table column upgrade notice:', colErr.message);
+      }
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS analytics_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          event_type VARCHAR(50) NOT NULL,
+          username VARCHAR(255) NOT NULL,
+          ip_address VARCHAR(100) NOT NULL,
+          details TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
@@ -230,6 +252,17 @@ function createSqliteTables() {
         username TEXT UNIQUE,
         password TEXT,
         photo_url TEXT DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS analytics_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        username TEXT NOT NULL,
+        ip_address TEXT NOT NULL,
+        details TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -531,6 +564,99 @@ const dbAPI = {
           resolve(row);
         }
       );
+    });
+  },
+
+  logEvent: (eventType, username, ipAddress, details) => {
+    return new Promise(async (resolve) => {
+      const detailsStr = typeof details === 'object' ? JSON.stringify(details) : (details || '');
+      if (useMysql) {
+        try {
+          await mysqlPool.query(
+            'INSERT INTO analytics_logs (event_type, username, ip_address, details) VALUES (?, ?, ?, ?)',
+            [eventType, username, ipAddress, detailsStr]
+          );
+          return resolve(true);
+        } catch (err) {
+          console.error('MySQL logEvent error:', err.message);
+          return resolve(false);
+        }
+      }
+      if (useFallback) {
+        try {
+          const data = getFallbackData();
+          if (!data.analytics_logs) data.analytics_logs = [];
+          data.analytics_logs.push({
+            id: data.analytics_logs.length > 0 ? Math.max(...data.analytics_logs.map(l => l.id)) + 1 : 1,
+            event_type: eventType,
+            username,
+            ip_address: ipAddress,
+            details: detailsStr,
+            created_at: new Date().toISOString()
+          });
+          saveFallbackData(data);
+          return resolve(true);
+        } catch (err) {
+          console.error('Fallback logEvent error:', err.message);
+          return resolve(false);
+        }
+      }
+      db.run(
+        'INSERT INTO analytics_logs (event_type, username, ip_address, details) VALUES (?, ?, ?, ?)',
+        [eventType, username, ipAddress, detailsStr],
+        (err) => {
+          if (err) {
+            console.error('SQLite logEvent error:', err.message);
+            return resolve(false);
+          }
+          resolve(true);
+        }
+      );
+    });
+  },
+
+  getAnalyticsLogs: () => {
+    return new Promise(async (resolve, reject) => {
+      if (useMysql) {
+        try {
+          const [rows] = await mysqlPool.query('SELECT * FROM analytics_logs ORDER BY created_at DESC LIMIT 500');
+          return resolve(rows);
+        } catch (err) {
+          return reject(err);
+        }
+      }
+      if (useFallback) {
+        const data = getFallbackData();
+        const logs = [...(data.analytics_logs || [])].reverse().slice(0, 500);
+        return resolve(logs);
+      }
+      db.all('SELECT * FROM analytics_logs ORDER BY created_at DESC LIMIT 500', [], (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
+      });
+    });
+  },
+
+  clearAnalyticsLogs: () => {
+    return new Promise(async (resolve, reject) => {
+      if (useMysql) {
+        try {
+          await mysqlPool.query('TRUNCATE TABLE analytics_logs');
+          return resolve(true);
+        } catch (err) {
+          return reject(err);
+        }
+      }
+      if (useFallback) {
+        const data = getFallbackData();
+        data.analytics_logs = [];
+        saveFallbackData(data);
+        return resolve(true);
+      }
+      db.run('DELETE FROM analytics_logs', [], (err) => {
+        if (err) return reject(err);
+        resolve(true);
+      });
     });
   }
 };

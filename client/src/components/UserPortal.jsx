@@ -269,6 +269,21 @@ export default function UserPortal({ templates }) {
       link.download = `${template.title.replace(/\s+/g, '_')}_${profile.name.replace(/\s+/g, '_')}.png`;
       link.href = dataUrl;
       link.click();
+
+      // Log download event to server analytics
+      try {
+        await fetch('/api/analytics/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_type: 'download',
+            username: profile.name,
+            details: JSON.stringify({ template_title: template.title })
+          })
+        });
+      } catch (logErr) {
+        console.warn('Failed to log download event:', logErr.message);
+      }
     } catch (err) {
       console.error('HD Render export failed:', err);
     } finally {

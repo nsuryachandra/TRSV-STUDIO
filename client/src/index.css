@@ -251,6 +251,11 @@ html, body, #root {
   color: #065f46;
   border-color: #6ee7b7;
 }
+.nav-item.active-amber {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+}
 
 /* ─── Smooth Transitions & Utilities ─────────────────────── */
 .smooth-transition { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
