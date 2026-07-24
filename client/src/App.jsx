@@ -201,9 +201,7 @@ export default function App() {
         {/* Supporter Dashboard Header */}
         <header className="h-16 px-4 sm:px-8 flex items-center justify-between z-20 shrink-0 bg-white border-b border-slate-200 shadow-sm sticky top-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-gradient-to-tr from-amber-400 to-yellow-300 shadow-md shadow-amber-400/20">
-              <Sparkles size={17} className="text-slate-950" strokeWidth={2.5} />
-            </div>
+            <img src="/trsv_logo.png" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain shrink-0 shadow-sm" alt="TRSV Logo" />
             <div>
               <h1 className="text-xs sm:text-sm font-black leading-none tracking-wide text-slate-900 font-poppins">
                 TRSV <span className="text-amber-500">Design Studio</span>
@@ -242,9 +240,7 @@ export default function App() {
       {/* Mobile Header Bar */}
       <header className="md:hidden h-14 px-4 bg-white border-b border-slate-200 flex items-center justify-between z-30 sticky top-0 shadow-sm">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-tr from-amber-400 to-yellow-300 shadow-md shadow-amber-400/20">
-            <Sparkles size={16} className="text-slate-950" strokeWidth={2.5} />
-          </div>
+          <img src="/trsv_logo.png" className="w-8 h-8 rounded-xl object-contain shrink-0 shadow-sm" alt="TRSV Logo" />
           <div>
             <h1 className="text-xs font-black leading-none tracking-wide text-slate-900 font-poppins">
               TRSV <span className="text-amber-500">Design Studio</span>
@@ -341,6 +337,9 @@ export default function App() {
             <LogOut size={14} />
             Logout Studio
           </button>
+          <div className="text-center pt-1">
+            <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Built by Surya</span>
+          </div>
         </div>
       </aside>
 

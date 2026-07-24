@@ -486,6 +486,9 @@ export default function Login({ onLogin }) {
             <span className="text-[9.5px] font-semibold text-slate-400 tracking-wider uppercase">
               Unofficial Fan & Supporter Campaign Tool
             </span>
+            <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider mt-0.5">
+              Built by Surya
+            </span>
           </div>
         </div>
       </div>

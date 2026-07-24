@@ -665,6 +665,9 @@ export default function UserPortal({ templates }) {
         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
           Unofficial Fan & Supporter Campaign Tool • Independent Platform
         </span>
+        <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider mt-1">
+          Built by Surya
+        </span>
       </div>
     </div>
   );
