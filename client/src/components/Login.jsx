@@ -94,7 +94,13 @@ export default function Login({ onLogin }) {
       if (res.ok) {
         const user = await res.json();
         if (user.success !== false) {
-          const profileData = { name: user.name, role: user.role, username: user.username, photoDataUrl: user.photo_url || '' };
+          const profileData = { 
+            name: user.name, 
+            role: user.role, 
+            username: user.username, 
+            photoDataUrl: user.photo_url || '',
+            isBgRemoved: !!user.photo_url
+          };
           localStorage.setItem('posterforge_user_profile', JSON.stringify(profileData));
           onLogin({ role: 'supporter', profile: profileData });
           return;

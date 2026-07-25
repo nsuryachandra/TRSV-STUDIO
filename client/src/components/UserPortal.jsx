@@ -9,12 +9,14 @@ export default function UserPortal({ templates }) {
     try {
       const stored = JSON.parse(localStorage.getItem('posterforge_user_profile'));
       if (!stored) return fallback;
+      const hasPhoto = !!stored.photoDataUrl;
+      const isUrl = hasPhoto && (stored.photoDataUrl.startsWith('http') || stored.photoDataUrl.startsWith('/uploads'));
       return {
         name: stored.name || '',
         role: stored.role || '',
         photoDataUrl: stored.photoDataUrl || '',
         username: stored.username || '',
-        isBgRemoved: stored.isBgRemoved || false
+        isBgRemoved: stored.isBgRemoved || isUrl || false
       };
     } catch {
       return fallback;
@@ -121,23 +123,27 @@ export default function UserPortal({ templates }) {
         const res = await fetch(`/api/auth/profile?username=${encodeURIComponent(profile.username)}`);
         if (res.ok) {
           const serverProfile = await res.json();
+          const serverPhotoUrl = serverProfile.photoDataUrl || '';
+          const isServerPhotoBgRemoved = !!serverPhotoUrl;
+
           if (serverProfile.name !== profile.name || 
               serverProfile.role !== profile.role || 
-              (serverProfile.photoDataUrl && serverProfile.photoDataUrl !== profile.photoDataUrl)) {
+              serverPhotoUrl !== profile.photoDataUrl ||
+              isServerPhotoBgRemoved !== profile.isBgRemoved) {
             
             const updated = {
               ...profile,
               name: serverProfile.name || profile.name,
               role: serverProfile.role || profile.role,
-              photoDataUrl: serverProfile.photoDataUrl || profile.photoDataUrl,
-              isBgRemoved: serverProfile.photoDataUrl ? (serverProfile.photoDataUrl.includes('base64') ? profile.isBgRemoved : true) : profile.isBgRemoved
+              photoDataUrl: serverPhotoUrl || profile.photoDataUrl,
+              isBgRemoved: serverPhotoUrl ? true : profile.isBgRemoved
             };
             setProfile(updated);
             localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
             
-            if (serverProfile.photoDataUrl && !originalPhoto) {
-              setOriginalPhoto(serverProfile.photoDataUrl);
-              localStorage.setItem('posterforge_original_photo', serverProfile.photoDataUrl);
+            if (serverPhotoUrl && !originalPhoto) {
+              setOriginalPhoto(serverPhotoUrl);
+              localStorage.setItem('posterforge_original_photo', serverPhotoUrl);
             }
           }
         }
@@ -468,15 +474,39 @@ export default function UserPortal({ templates }) {
                     {profile.photoDataUrl ? 'Change Portrait Photo' : 'Choose Picture'}
                   </button>
 
-                  {profile.photoDataUrl && !profile.isBgRemoved && !removingBg && (
-                    <button
-                      type="button"
-                      onClick={removeBackgroundClientSide}
-                      className="text-[10px] font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all hover:scale-105 active:scale-95 shadow-xs"
-                    >
-                      <Sparkles size={11} className="animate-pulse text-emerald-600" />
-                      Remove Background
-                    </button>
+                   {profile.photoDataUrl && !profile.isBgRemoved && !removingBg && (
+                    <div className="flex flex-col gap-1.5 items-center w-full">
+                      <button
+                        type="button"
+                        onClick={removeBackgroundClientSide}
+                        className="text-[10px] font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all hover:scale-105 active:scale-95 shadow-xs"
+                      >
+                        <Sparkles size={11} className="animate-pulse text-emerald-600" />
+                        Remove Background
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const updated = {
+                            ...profile,
+                            isBgRemoved: true
+                          };
+                          setProfile(updated);
+                          localStorage.setItem('posterforge_user_profile', JSON.stringify(updated));
+                          setIsSaved(true);
+                          if (updated.username && updated.name && updated.role) {
+                            try {
+                              await saveProfileToServer(updated);
+                            } catch (err) {
+                              console.error('Failed to sync bypass bg status to server:', err);
+                            }
+                          }
+                        }}
+                        className="text-[9px] font-semibold text-slate-500 hover:text-slate-700 underline"
+                      >
+                        Use Photo As Is (Already Transparent)
+                      </button>
+                    </div>
                   )}
 
                   {profile.photoDataUrl && profile.isBgRemoved && !removingBg && (
